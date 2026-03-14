@@ -10,6 +10,7 @@ import { PostCard } from "./PostCard";
 import { SentimentIndicator } from "./SentimentIndicator";
 import { CompetitorChart } from "./CompetitorChart";
 import { FeatureHeatmap } from "./FeatureHeatmap";
+import { VectorMap } from "./VectorMap";
 import {
   Select,
   SelectContent,
@@ -136,6 +137,7 @@ export function DashboardClient({
         <TabsList>
           <TabsTrigger value="overview">概要</TabsTrigger>
           <TabsTrigger value="competitor">競合比較</TabsTrigger>
+          <TabsTrigger value="vectormap">ベクトルマップ</TabsTrigger>
           <TabsTrigger value="clusters">クラスター</TabsTrigger>
           <TabsTrigger value="posts">投稿一覧</TabsTrigger>
         </TabsList>
@@ -189,6 +191,11 @@ export function DashboardClient({
               <p>データがありません。「データ収集」ボタンでデータを投入してください。</p>
             </div>
           )}
+        </TabsContent>
+
+        {/* ベクトルマップタブ */}
+        <TabsContent value="vectormap" className="space-y-6">
+          <VectorMap onGenerate={refreshData} />
         </TabsContent>
 
         {/* クラスタータブ */}
