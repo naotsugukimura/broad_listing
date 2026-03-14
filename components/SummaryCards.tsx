@@ -1,8 +1,8 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Layers, TrendingUp, AlertTriangle } from "lucide-react";
-import type { PostCluster, SnsPost } from "@/types";
+import { MessageSquare, Layers, TrendingUp, AlertTriangle, Monitor } from "lucide-react";
+import type { PostCluster, SnsPost, SoftwareName } from "@/types";
 
 type Props = {
   posts: SnsPost[];
@@ -24,6 +24,14 @@ export function SummaryCards({ posts, clusters }: Props) {
   const highRelevanceCount = clusters.filter(
     (c) => c.business_relevance.level === "high"
   ).length;
+
+  // 言及ソフトウェアの種類数を集計
+  const softwareSet = new Set<SoftwareName>();
+  for (const post of posts) {
+    for (const sw of (post.software_mentioned ?? [])) {
+      softwareSet.add(sw as SoftwareName);
+    }
+  }
 
   const items = [
     {
@@ -48,6 +56,12 @@ export function SummaryCards({ posts, clusters }: Props) {
       color: "text-green-600",
     },
     {
+      label: "言及ソフト数",
+      value: softwareSet.size,
+      icon: Monitor,
+      color: "text-cyan-600",
+    },
+    {
       label: "重要度「高」",
       value: highRelevanceCount,
       icon: AlertTriangle,
@@ -56,7 +70,7 @@ export function SummaryCards({ posts, clusters }: Props) {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
       {items.map((item) => (
         <Card key={item.label}>
           <CardContent className="flex items-center gap-3 p-4">

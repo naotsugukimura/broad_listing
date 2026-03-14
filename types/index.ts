@@ -1,3 +1,81 @@
+// ソフトウェア名（調査対象）
+export type SoftwareName =
+  | "kabenashi"
+  | "honobono"
+  | "kaishu"
+  | "knoube"
+  | "hug"
+  | "wiseman"
+  | "none";
+
+// ソフトウェア名ラベル
+export const SOFTWARE_LABELS: Record<SoftwareName, string> = {
+  kabenashi: "かべなしクラウド",
+  honobono: "ほのぼの NEXT",
+  kaishu: "介舟ファミリー",
+  knoube: "ノウビー",
+  hug: "HUG",
+  wiseman: "ワイズマン",
+  none: "未使用",
+};
+
+// 評価対象の機能軸
+export type FeatureAspect =
+  | "billing"
+  | "recording"
+  | "care_plan"
+  | "ui_ux"
+  | "support"
+  | "pricing"
+  | "mobile"
+  | "data_migration"
+  | "reporting";
+
+// 機能軸ラベル
+export const FEATURE_LABELS: Record<FeatureAspect, string> = {
+  billing: "請求機能",
+  recording: "記録管理",
+  care_plan: "支援計画",
+  ui_ux: "操作性・UI",
+  support: "サポート",
+  pricing: "価格",
+  mobile: "モバイル",
+  data_migration: "データ移行",
+  reporting: "帳票・レポート",
+};
+
+// Plutchikの感情の輪（8基本感情）- WRIME日本語データセット準拠
+export type PlutchikEmotion =
+  | "joy"
+  | "trust"
+  | "anticipation"
+  | "surprise"
+  | "fear"
+  | "sadness"
+  | "anger"
+  | "disgust";
+
+export const EMOTION_LABELS: Record<PlutchikEmotion, string> = {
+  joy: "喜び",
+  trust: "信頼",
+  anticipation: "期待",
+  surprise: "驚き",
+  fear: "不安",
+  sadness: "悲しみ",
+  anger: "怒り",
+  disgust: "嫌悪",
+};
+
+// 8感情スコア（0-3の強度）
+export type EmotionScores = Record<PlutchikEmotion, number>;
+
+// アスペクトベース感情分析（ABSA）
+export type AspectSentiment = {
+  aspect: FeatureAspect;
+  sentiment: "positive" | "neutral" | "negative";
+  detail: string;
+};
+
 // SNS投稿
 export type SnsPost = {
   id: string;
@@ -8,6 +86,10 @@ export type SnsPost = {
   sentiment: "positive" | "neutral" | "negative";
   cluster_id: string | null;
   created_at: string;
+  // 拡張フィールド
+  software_mentioned: SoftwareName[];
+  aspect_sentiments: AspectSentiment[];
+  emotion_scores: EmotionScores;
 };
 
 // クラスター
@@ -22,6 +104,16 @@ export type PostCluster = {
   business_relevance: BusinessRelevance;
   representative_posts: string[];
   created_at: string;
+  // 拡張フィールド
+  feature_analysis: FeatureAnalysis[];
+};
+
+// 機能別評価集計（クラスター内）
+export type FeatureAnalysis = {
+  aspect: FeatureAspect;
+  positive_count: number;
+  negative_count: number;
+  summary: string;
 };
 
 // クラスタリング実行
@@ -70,6 +162,7 @@ export type GeminiCluster = {
   sentiment_distribution: SentimentDistribution;
   business_relevance: BusinessRelevance;
   representative_post_indices: number[];
+  feature_analysis: FeatureAnalysis[];
 };
 
 // カテゴリラベルマッピング

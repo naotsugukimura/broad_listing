@@ -8,6 +8,8 @@ import { ClusterChart } from "./ClusterChart";
 import { ClusterCard } from "./ClusterCard";
 import { PostCard } from "./PostCard";
 import { SentimentIndicator } from "./SentimentIndicator";
+import { CompetitorChart } from "./CompetitorChart";
+import { FeatureHeatmap } from "./FeatureHeatmap";
 import {
   Select,
   SelectContent,
@@ -133,6 +135,7 @@ export function DashboardClient({
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">概要</TabsTrigger>
+          <TabsTrigger value="competitor">競合比較</TabsTrigger>
           <TabsTrigger value="clusters">クラスター</TabsTrigger>
           <TabsTrigger value="posts">投稿一覧</TabsTrigger>
         </TabsList>
@@ -170,6 +173,20 @@ export function DashboardClient({
           {posts.length === 0 && (
             <div className="rounded-lg border border-dashed p-12 text-center text-gray-500">
               <p>データがありません。「データ収集」ボタンでダミーデータを投入してください。</p>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* 競合比較タブ */}
+        <TabsContent value="competitor" className="space-y-6">
+          {posts.length > 0 ? (
+            <>
+              <CompetitorChart posts={posts} />
+              <FeatureHeatmap posts={posts} />
+            </>
+          ) : (
+            <div className="rounded-lg border border-dashed p-12 text-center text-gray-500">
+              <p>データがありません。「データ収集」ボタンでデータを投入してください。</p>
             </div>
           )}
         </TabsContent>

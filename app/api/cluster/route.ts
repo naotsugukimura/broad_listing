@@ -87,6 +87,7 @@ export async function POST() {
           sentiment_distribution: cluster.sentiment_distribution,
           business_relevance: cluster.business_relevance,
           representative_posts: representativePosts,
+          feature_analysis: cluster.feature_analysis ?? [],
         })
         .select()
         .single();
