@@ -44,7 +44,7 @@ export async function POST() {
         const contents = batch.map((p) => p.content);
 
         const result = await genAI
-          .getGenerativeModel({ model: "text-embedding-004" })
+          .getGenerativeModel({ model: "gemini-embedding-001" })
           .batchEmbedContents({
             requests: contents.map((text) => ({
               content: { role: "user", parts: [{ text }] },
@@ -68,7 +68,7 @@ export async function POST() {
       (p) => p.embedding as number[]
     );
 
-    // UMAP次元削減（768次元 → 2次元）
+    // UMAP次元削減（3072次元 → 2次元）
     const umap = new UMAP({
       nNeighbors: Math.min(15, Math.max(2, posts.length - 1)),
       minDist: 0.1,
