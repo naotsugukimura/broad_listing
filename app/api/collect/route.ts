@@ -76,7 +76,16 @@ export async function POST() {
       );
     }
 
-    const tweets = await searchTweets();
+    let tweets;
+    try {
+      tweets = await searchTweets();
+    } catch (xErr) {
+      const msg = xErr instanceof Error ? xErr.message : String(xErr);
+      return NextResponse.json(
+        { error: `X API検索エラー: ${msg}` },
+        { status: 500 }
+      );
+    }
 
     if (tweets.length === 0) {
       return NextResponse.json({
@@ -87,8 +96,17 @@ export async function POST() {
     }
 
     // Geminiで拡張感情分析（ABSA + Plutchik + ソフトウェア検出）
-    const texts = tweets.map((t) => t.text);
-    const analyses = await analyzeEnhanced(texts);
+    let analyses;
+    try {
+      const texts = tweets.map((t) => t.text);
+      analyses = await analyzeEnhanced(texts);
+    } catch (geminiErr) {
+      const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      return NextResponse.json(
+        { error: `Gemini感情分析エラー: ${msg}` },
+        { status: 500 }
+      );
+    }
 
     const postsToInsert = tweets.map((tweet, i) => ({
       content: tweet.text,
@@ -114,7 +132,10 @@ export async function POST() {
       .select();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: `DB保存エラー: ${error.message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

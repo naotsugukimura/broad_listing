@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { SummaryCards } from "./SummaryCards";
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Database, Brain, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Database, Brain, Loader2, RefreshCw, Trash2, Square } from "lucide-react";
 import type { SnsPost, PostCluster, ClusteringRun } from "@/types";
 
 type Props = {
@@ -40,6 +40,8 @@ export function DashboardClient({
   const [cleaning, setCleaning] = useState(false);
   const [sentimentFilter, setSentimentFilter] = useState<string>("all");
   const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"info" | "error">("info");
+  const collectAbortRef = useRef<AbortController | null>(null);
 
   const refreshData = useCallback(async () => {
     const [postsRes, clustersRes, runsRes] = await Promise.all([
@@ -58,16 +60,39 @@ export function DashboardClient({
   const handleCollect = async () => {
     setCollecting(true);
     setMessage(null);
+    setMessageType("info");
+    const abortController = new AbortController();
+    collectAbortRef.current = abortController;
     try {
-      const res = await fetch("/api/collect", { method: "POST" });
+      const res = await fetch("/api/collect", {
+        method: "POST",
+        signal: abortController.signal,
+      });
       const data = await res.json();
-      setMessage(data.message || data.error);
+      if (res.ok) {
+        setMessage(data.message);
+        setMessageType("info");
+      } else {
+        setMessage(data.error || "データ収集に失敗しました");
+        setMessageType("error");
+      }
       await refreshData();
-    } catch {
-      setMessage("データ収集に失敗しました");
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setMessage("データ収集を中断しました");
+        setMessageType("info");
+      } else {
+        setMessage("データ収集に失敗しました（ネットワークエラー）");
+        setMessageType("error");
+      }
     } finally {
       setCollecting(false);
+      collectAbortRef.current = null;
     }
+  };
+
+  const handleStopCollect = () => {
+    collectAbortRef.current?.abort();
   };
 
   const handleCleanup = async () => {
@@ -111,14 +136,17 @@ export function DashboardClient({
     <div className="space-y-6">
       {/* アクションバー */}
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={handleCollect} disabled={collecting}>
-          {collecting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
+        {collecting ? (
+          <Button onClick={handleStopCollect} variant="destructive">
+            <Square className="mr-2 h-4 w-4" />
+            停止
+          </Button>
+        ) : (
+          <Button onClick={handleCollect}>
             <Database className="mr-2 h-4 w-4" />
-          )}
-          データ収集
-        </Button>
+            データ収集
+          </Button>
+        )}
         <Button
           onClick={handleCluster}
           disabled={clustering || posts.length === 0}
@@ -149,7 +177,11 @@ export function DashboardClient({
         </Button>
 
         {message && (
-          <span className="rounded bg-blue-50 px-3 py-1 text-sm text-blue-700">
+          <span className={`rounded px-3 py-1 text-sm ${
+            messageType === "error"
+              ? "bg-red-50 text-red-700"
+              : "bg-blue-50 text-blue-700"
+          }`}>
             {message}
           </span>
         )}
