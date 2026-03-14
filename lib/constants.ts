@@ -15,6 +15,9 @@ export const SEARCH_KEYWORDS = [
 // 製品名
 export const PRODUCT_NAME = "かべなしクラウド";
 
+// X API設定
+export const X_MAX_RESULTS_PER_QUERY = 50; // Basic tier: 最大100件/リクエスト
+
 // 収集ソースラベル
 export const SOURCE_LABELS: Record<string, string> = {
   x: "X (Twitter)",
