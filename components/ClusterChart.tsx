@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   BarChart,
   Bar,
@@ -18,7 +19,10 @@ type Props = {
 };
 
 export function ClusterChart({ clusters }: Props) {
+  const router = useRouter();
+
   const data = clusters.map((c) => ({
+    id: c.id,
     name: c.label.length > 10 ? c.label.slice(0, 10) + "..." : c.label,
     fullName: c.label,
     positive: c.sentiment_distribution.positive,
@@ -31,10 +35,23 @@ export function ClusterChart({ clusters }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base">クラスター別 投稿数・感情分布</CardTitle>
+        <p className="text-xs text-gray-500">
+          棒グラフをクリックすると、そのクラスターの詳細・代表コメントを確認できます
+        </p>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+          <BarChart
+            data={data}
+            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+            onClick={(state: Record<string, unknown>) => {
+              const payload = state?.activePayload as Array<{ payload: { id: string } }> | undefined;
+              if (payload?.[0]?.payload?.id) {
+                router.push(`/clusters/${payload[0].payload.id}`);
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="name"

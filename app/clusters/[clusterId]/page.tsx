@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageCircle, Lightbulb, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CATEGORY_LABELS } from "@/types";
@@ -19,7 +19,8 @@ async function getClusterData(clusterId: string) {
     process.env.SUPABASE_ANON_KEY!
   );
 
-  const [clusterResult, postsResult] = await Promise.all([
+  // 全投稿数も取得（パーセンテージ計算用）
+  const [clusterResult, postsResult, totalResult] = await Promise.all([
     supabase
       .from("post_clusters")
       .select("*")
@@ -30,29 +31,33 @@ async function getClusterData(clusterId: string) {
       .select("*")
       .eq("cluster_id", clusterId)
       .order("posted_at", { ascending: false }),
+    supabase
+      .from("sns_posts")
+      .select("id", { count: "exact", head: true }),
   ]);
 
   return {
     cluster: clusterResult.data as PostCluster | null,
     posts: (postsResult.data || []) as SnsPost[],
+    totalPostCount: totalResult.count ?? 0,
   };
 }
 
 const relevanceColors: Record<string, string> = {
-  high: "bg-red-100 text-red-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-gray-100 text-gray-600",
+  high: "bg-red-100 text-red-700 border-red-200",
+  medium: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  low: "bg-gray-100 text-gray-600 border-gray-200",
 };
 
-const sentimentConfig: Record<string, { label: string; shape: string; color: string }> = {
-  positive: { label: "ポジティブ", shape: "triangle-up", color: "text-green-600" },
-  neutral: { label: "中立", shape: "circle", color: "text-gray-600" },
-  negative: { label: "ネガティブ", shape: "triangle-down", color: "text-red-600" },
+const sentimentConfig: Record<string, { label: string; color: string; bg: string }> = {
+  positive: { label: "ポジティブ", color: "text-green-700", bg: "bg-green-50 border-green-200" },
+  neutral: { label: "中立", color: "text-gray-700", bg: "bg-gray-50 border-gray-200" },
+  negative: { label: "ネガティブ", color: "text-red-700", bg: "bg-red-50 border-red-200" },
 };
 
 export default async function ClusterDetailPage({ params }: Props) {
   const { clusterId } = await params;
-  const { cluster, posts } = await getClusterData(clusterId);
+  const { cluster, posts, totalPostCount } = await getClusterData(clusterId);
 
   if (!cluster) {
     notFound();
@@ -62,6 +67,15 @@ export default async function ClusterDetailPage({ params }: Props) {
     cluster.sentiment_distribution.positive +
     cluster.sentiment_distribution.neutral +
     cluster.sentiment_distribution.negative;
+
+  const percentage = totalPostCount > 0
+    ? Math.round((cluster.post_count / totalPostCount) * 100)
+    : 0;
+
+  // 代表投稿を先頭に、それ以外を後に
+  const representativeIds = new Set(cluster.representative_posts || []);
+  const representativePosts = posts.filter((p) => representativeIds.has(p.id));
+  const otherPosts = posts.filter((p) => !representativeIds.has(p.id));
 
   return (
     <div className="space-y-6">
@@ -74,10 +88,10 @@ export default async function ClusterDetailPage({ params }: Props) {
         ダッシュボードに戻る
       </Link>
 
-      {/* クラスター情報 */}
-      <div className="space-y-4">
+      {/* ── ヘッダー: クラスター名 + 統計 ── */}
+      <div className="rounded-lg border bg-gradient-to-r from-blue-50 to-white p-6">
         <div className="flex flex-wrap items-start gap-3">
-          <h2 className="text-2xl font-bold">{cluster.label}</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{cluster.label}</h2>
           <Badge variant="secondary">
             {CATEGORY_LABELS[cluster.category]}
           </Badge>
@@ -89,97 +103,126 @@ export default async function ClusterDetailPage({ params }: Props) {
           </Badge>
         </div>
 
-        <p className="text-gray-700">{cluster.summary}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          ({cluster.post_count} 議論, {percentage}% 合計)
+        </p>
 
-        {/* ビジネス関連性 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">ビジネス分析</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <span className="text-sm font-medium text-gray-500">関連理由: </span>
-              <span className="text-sm">{cluster.business_relevance.reason}</span>
-            </div>
-            <div className="rounded bg-blue-50 p-3">
-              <span className="text-sm font-medium text-blue-700">
-                アクション提案:
-              </span>
-              <p className="mt-1 text-sm text-blue-700">
-                {cluster.business_relevance.actionable_insight}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* クラスター分析サマリー */}
+        <div className="mt-4">
+          <h3 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+            <BarChart3 className="h-4 w-4" />
+            クラスター分析:
+          </h3>
+          <p className="text-sm leading-relaxed text-gray-700">
+            {cluster.summary}
+          </p>
+        </div>
 
-        {/* 感情分布 */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">感情分布</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-3 flex h-4 overflow-hidden rounded-full">
-              {totalSentiment > 0 && (
-                <>
-                  <div
-                    className="bg-green-500"
-                    style={{
-                      width: `${(cluster.sentiment_distribution.positive / totalSentiment) * 100}%`,
-                    }}
-                  />
-                  <div
-                    className="bg-gray-400"
-                    style={{
-                      width: `${(cluster.sentiment_distribution.neutral / totalSentiment) * 100}%`,
-                    }}
-                  />
-                  <div
-                    className="bg-red-500"
-                    style={{
-                      width: `${(cluster.sentiment_distribution.negative / totalSentiment) * 100}%`,
-                    }}
-                  />
-                </>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-4">
-              {(["positive", "neutral", "negative"] as const).map((s) => {
-                const count = cluster.sentiment_distribution[s];
-                const c = sentimentConfig[s];
-                return (
-                  <div key={s} className={`flex items-center gap-1 ${c.color}`}>
-                    <SentimentShape type={s} />
-                    <span className="text-sm">
-                      {c.label}: {count}件
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+        {/* 感情分布バー */}
+        <div className="mt-4">
+          <div className="mb-2 flex h-3 overflow-hidden rounded-full">
+            {totalSentiment > 0 && (
+              <>
+                <div
+                  className="bg-green-500 transition-all"
+                  style={{ width: `${(cluster.sentiment_distribution.positive / totalSentiment) * 100}%` }}
+                />
+                <div
+                  className="bg-gray-400 transition-all"
+                  style={{ width: `${(cluster.sentiment_distribution.neutral / totalSentiment) * 100}%` }}
+                />
+                <div
+                  className="bg-red-500 transition-all"
+                  style={{ width: `${(cluster.sentiment_distribution.negative / totalSentiment) * 100}%` }}
+                />
+              </>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {(["positive", "neutral", "negative"] as const).map((s) => {
+              const count = cluster.sentiment_distribution[s];
+              const c = sentimentConfig[s];
+              return (
+                <div key={s} className={`flex items-center gap-1 ${c.color}`}>
+                  <SentimentShape type={s} />
+                  <span className="text-sm">
+                    {c.label}: {count}件
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* 所属投稿一覧 */}
-      <div>
-        <h3 className="mb-3 text-lg font-semibold">
-          所属投稿 ({posts.length}件)
-        </h3>
-        <div className="space-y-3">
-          {posts.map((post) => {
-            const date = new Date(post.posted_at);
-            const formatted = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-            const sc = sentimentConfig[post.sentiment];
+      {/* ── アクション提案 ── */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="flex gap-3 p-4">
+          <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <div>
+            <p className="text-sm font-medium text-blue-800">
+              アクション提案
+            </p>
+            <p className="mt-1 text-sm text-blue-700">
+              {cluster.business_relevance.actionable_insight}
+            </p>
+            <p className="mt-2 text-xs text-blue-600">
+              関連理由: {cluster.business_relevance.reason}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
-            return (
-              <Card key={post.id}>
-                <CardContent className="space-y-2 p-4">
+      {/* ── 代表的なコメント ── */}
+      {representativePosts.length > 0 && (
+        <div>
+          <h3 className="mb-3 flex items-center gap-1.5 text-lg font-semibold">
+            <MessageCircle className="h-5 w-5 text-blue-600" />
+            代表的なコメント:
+          </h3>
+          <ul className="space-y-2">
+            {representativePosts.map((post) => (
+              <li key={post.id} className="flex gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />
+                <div className="flex-1">
                   <p className="text-sm leading-relaxed text-gray-800">
                     {post.content}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
+                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                    <span>{post.author}</span>
+                    <span className={sentimentConfig[post.sentiment]?.color}>
+                      {sentimentConfig[post.sentiment]?.label}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* ── その他のコメント ── */}
+      <div>
+        <h3 className="mb-3 text-lg font-semibold">
+          {representativePosts.length > 0
+            ? `その他のコメント (${otherPosts.length}件)`
+            : `所属投稿 (${posts.length}件)`}
+        </h3>
+        <div className="space-y-2">
+          {(representativePosts.length > 0 ? otherPosts : posts).map((post) => {
+            const date = new Date(post.posted_at);
+            const formatted = `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`;
+            const sc = sentimentConfig[post.sentiment];
+
+            return (
+              <Card key={post.id} className="transition-shadow hover:shadow-sm">
+                <CardContent className="p-3">
+                  <p className="text-sm leading-relaxed text-gray-800">
+                    {post.content}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
                     <div className="flex items-center gap-2">
-                      <span>@{post.author}</span>
+                      <span>{post.author}</span>
                       <span>{formatted}</span>
                     </div>
                     <span className={`flex items-center gap-1 ${sc.color}`}>
@@ -197,7 +240,6 @@ export default async function ClusterDetailPage({ params }: Props) {
   );
 }
 
-// 形状コンポーネント（Server Component内で使用するためインライン定義）
 function SentimentShape({ type }: { type: "positive" | "neutral" | "negative" }) {
   const size = 14;
   if (type === "positive") {

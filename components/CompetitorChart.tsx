@@ -17,13 +17,28 @@ type Props = {
   posts: SnsPost[];
 };
 
+// 表示順序: 自社 → 競合（アルファベット順）
+const DISPLAY_ORDER: SoftwareName[] = [
+  "kabenashi",
+  "honobono",
+  "kaishu",
+  "knoube",
+  "hug",
+  "wiseman",
+  "none",
+];
+
 export function CompetitorChart({ posts }: Props) {
-  // ソフトウェアごとの感情分布を集計
+  // 全ソフトを初期値0で初期化
   const softwareStats = new Map<
     SoftwareName,
     { positive: number; neutral: number; negative: number; total: number }
   >();
+  for (const sw of DISPLAY_ORDER) {
+    softwareStats.set(sw, { positive: 0, neutral: 0, negative: 0, total: 0 });
+  }
 
+  // 投稿データから集計
   for (const post of posts) {
     const mentioned = post.software_mentioned ?? [];
     if (mentioned.length === 0) continue;
@@ -39,39 +54,44 @@ export function CompetitorChart({ posts }: Props) {
     }
   }
 
-  // データ整形（投稿数の多い順）
-  const chartData = Array.from(softwareStats.entries())
-    .sort((a, b) => b[1].total - a[1].total)
-    .map(([key, stat]) => ({
-      name: SOFTWARE_LABELS[key] ?? key,
-      ポジティブ: stat.positive,
-      中立: stat.neutral,
-      ネガティブ: stat.negative,
-    }));
-
-  if (chartData.length === 0) {
-    return null;
-  }
+  // 表示順序に従ってデータ整形
+  const chartData = DISPLAY_ORDER
+    .map((key) => {
+      const stat = softwareStats.get(key)!;
+      return {
+        name: SOFTWARE_LABELS[key] ?? key,
+        ポジティブ: stat.positive,
+        中立: stat.neutral,
+        ネガティブ: stat.negative,
+        total: stat.total,
+      };
+    });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">ソフトウェア別 感情分布</CardTitle>
         <p className="text-xs text-gray-500">
-          各ソフトウェアに言及した投稿の感情分析結果
+          各ソフトウェアに言及した投稿の感情分析結果（言及なし = データ不足）
         </p>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={chartData} layout="vertical">
             <XAxis type="number" domain={[0, "auto"]} allowDecimals={false} />
             <YAxis
               type="category"
               dataKey="name"
-              width={120}
+              width={140}
               tick={{ fontSize: 12 }}
             />
-            <Tooltip />
+            <Tooltip
+              formatter={(value, name) => [value, name]}
+              labelFormatter={(label) => {
+                const item = chartData.find((d) => d.name === label);
+                return item ? `${label}（計${item.total}件）` : label;
+              }}
+            />
             <Legend />
             <Bar dataKey="ポジティブ" stackId="a" fill="#22c55e" />
             <Bar dataKey="中立" stackId="a" fill="#9ca3af" />
