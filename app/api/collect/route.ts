@@ -108,23 +108,41 @@ export async function POST() {
       );
     }
 
-    const postsToInsert = tweets.map((tweet, i) => ({
-      content: tweet.text,
-      author: `@${tweet.author_username}`,
-      source: "x" as const,
-      posted_at: tweet.created_at,
-      sentiment: analyses[i].sentiment,
-      software_mentioned: analyses[i].software_mentioned,
-      aspect_sentiments: analyses[i].aspect_sentiments,
-      emotion_scores: analyses[i].emotion_scores,
-      sentiment_score: analyses[i].sentiment_score,
-      sentiment_reason: analyses[i].sentiment_reason,
-      service_types: analyses[i].service_types,
-      key_keywords: analyses[i].key_keywords,
-      search_tier: tweet.search_tier ?? null,
-      tweet_id: tweet.id,
-      tweet_url: `https://x.com/${tweet.author_username}/status/${tweet.id}`,
-    }));
+    // Geminiの結果件数がツイート数と不一致の場合のフォールバック
+    const defaultAnalysis: EnhancedAnalysis = {
+      sentiment: "neutral",
+      sentiment_score: 3,
+      sentiment_reason: "",
+      software_mentioned: [],
+      service_types: ["unknown"],
+      aspect_sentiments: [],
+      emotion_scores: {
+        joy: 0, trust: 0, anticipation: 0, surprise: 0,
+        fear: 0, sadness: 0, anger: 0, disgust: 0,
+      },
+      key_keywords: [],
+    };
+
+    const postsToInsert = tweets.map((tweet, i) => {
+      const a = analyses[i] ?? defaultAnalysis;
+      return {
+        content: tweet.text,
+        author: `@${tweet.author_username}`,
+        source: "x" as const,
+        posted_at: tweet.created_at,
+        sentiment: a.sentiment,
+        software_mentioned: a.software_mentioned,
+        aspect_sentiments: a.aspect_sentiments,
+        emotion_scores: a.emotion_scores,
+        sentiment_score: a.sentiment_score,
+        sentiment_reason: a.sentiment_reason,
+        service_types: a.service_types,
+        key_keywords: a.key_keywords,
+        search_tier: tweet.search_tier ?? null,
+        tweet_id: tweet.id,
+        tweet_url: `https://x.com/${tweet.author_username}/status/${tweet.id}`,
+      };
+    });
 
     const { data, error } = await supabase
       .from("sns_posts")
