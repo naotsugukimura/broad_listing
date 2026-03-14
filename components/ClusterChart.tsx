@@ -82,14 +82,6 @@ export function ClusterChart({ clusters, posts }: Props) {
             <BarChart
               data={data}
               margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
-              onClick={(state: Record<string, unknown>) => {
-                const payload = state?.activePayload as Array<{ payload: { id: string } }> | undefined;
-                const clickedId = payload?.[0]?.payload?.id;
-                if (clickedId) {
-                  const cluster = clusters.find((c) => c.id === clickedId);
-                  if (cluster) setSelectedCluster(cluster);
-                }
-              }}
               style={{ cursor: "pointer" }}
             >
               <CartesianGrid strokeDasharray="3 3" />
@@ -129,9 +121,42 @@ export function ClusterChart({ clusters, posts }: Props) {
                   return labels[value] || value;
                 }}
               />
-              <Bar dataKey="positive" stackId="a" fill="#22c55e" name="positive" />
-              <Bar dataKey="neutral" stackId="a" fill="#9ca3af" name="neutral" />
-              <Bar dataKey="negative" stackId="a" fill="#ef4444" name="negative" />
+              <Bar
+                dataKey="positive"
+                stackId="a"
+                fill="#22c55e"
+                name="positive"
+                onClick={(_data, _index, e) => {
+                  void e;
+                  const barData = _data as unknown as { id: string };
+                  const cluster = clusters.find((c) => c.id === barData.id);
+                  if (cluster) setSelectedCluster(cluster);
+                }}
+              />
+              <Bar
+                dataKey="neutral"
+                stackId="a"
+                fill="#9ca3af"
+                name="neutral"
+                onClick={(_data, _index, e) => {
+                  void e;
+                  const barData = _data as unknown as { id: string };
+                  const cluster = clusters.find((c) => c.id === barData.id);
+                  if (cluster) setSelectedCluster(cluster);
+                }}
+              />
+              <Bar
+                dataKey="negative"
+                stackId="a"
+                fill="#ef4444"
+                name="negative"
+                onClick={(_data, _index, e) => {
+                  void e;
+                  const barData = _data as unknown as { id: string };
+                  const cluster = clusters.find((c) => c.id === barData.id);
+                  if (cluster) setSelectedCluster(cluster);
+                }}
+              />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
