@@ -187,7 +187,7 @@ export function DashboardClient({
         )}
 
         {latestRun && (
-          <span className="ml-auto text-xs text-gray-500">
+          <span className="ml-auto text-xs text-gray-500" suppressHydrationWarning>
             最終実行: {new Date(latestRun.created_at).toLocaleString("ja-JP")} / {latestRun.status}
           </span>
         )}
