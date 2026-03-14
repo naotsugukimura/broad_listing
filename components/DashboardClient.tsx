@@ -146,7 +146,7 @@ export function DashboardClient({
         <TabsContent value="overview" className="space-y-6">
           <SummaryCards posts={posts} clusters={clusters} />
 
-          {clusters.length > 0 && <ClusterChart clusters={clusters} />}
+          {clusters.length > 0 && <ClusterChart clusters={clusters} posts={posts} />}
 
           {/* 感情分析概要 */}
           {posts.length > 0 && (
