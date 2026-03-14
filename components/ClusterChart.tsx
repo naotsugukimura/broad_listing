@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Lightbulb, MessageCircle, BarChart3 } from "lucide-react";
+import { Lightbulb, MessageCircle, BarChart3, ExternalLink } from "lucide-react";
 import { CATEGORY_LABELS } from "@/types";
 import type { PostCluster, SnsPost } from "@/types";
 
@@ -253,7 +253,19 @@ export function ClusterChart({ clusters, posts }: Props) {
                           {post.content}
                         </p>
                         <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                          <span>{post.author}</span>
+                          {post.tweet_url ? (
+                            <a
+                              href={post.tweet_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-blue-600 hover:underline"
+                            >
+                              {post.author}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ) : (
+                            <span>{post.author}</span>
+                          )}
                           <span className={sentimentConfig[post.sentiment]?.color}>
                             {sentimentConfig[post.sentiment]?.label}
                           </span>

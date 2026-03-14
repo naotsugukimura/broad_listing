@@ -87,6 +87,9 @@ export type SnsPost = {
   sentiment: "positive" | "neutral" | "negative";
   cluster_id: string | null;
   created_at: string;
+  // 元投稿リンク
+  tweet_id?: string | null;
+  tweet_url?: string | null;
   // 拡張フィールド
   software_mentioned: SoftwareName[];
   aspect_sentiments: AspectSentiment[];
@@ -99,27 +102,45 @@ export type SnsPost = {
   key_keywords?: string[]; // 抽出キーワード
 };
 
-// 障害福祉サービス種別
+// 障害福祉サービス種別（WAM 障害福祉サービス等情報公表システム準拠）
 export type ServiceType =
-  | "b_type"        // 就労継続支援B型
-  | "a_type"        // 就労継続支援A型
-  | "transition"    // 就労移行支援
-  | "after_school"  // 放課後等デイサービス
-  | "group_home"    // グループホーム（共同生活援助）
-  | "day_care"      // 生活介護
-  | "consultation"  // 相談支援（計画相談）
-  | "child_dev"     // 児童発達支援
-  | "unknown";      // 特定できない
+  | "b_type"          // 就労継続支援B型
+  | "a_type"          // 就労継続支援A型
+  | "transition"      // 就労移行支援
+  | "job_retention"   // 就労定着支援
+  | "after_school"    // 放課後等デイサービス
+  | "group_home"      // グループホーム（共同生活援助）
+  | "day_care"        // 生活介護
+  | "consultation"    // 相談支援（計画相談）
+  | "child_dev"       // 児童発達支援
+  | "home_help"       // 居宅介護（ホームヘルプ）
+  | "severe_visit"    // 重度訪問介護
+  | "accompany"       // 同行援護
+  | "behavior_aid"    // 行動援護
+  | "short_stay"      // 短期入所（ショートステイ）
+  | "residential"     // 施設入所支援
+  | "self_training"   // 自立訓練（機能訓練・生活訓練）
+  | "medical_care"    // 療養介護
+  | "unknown";        // 特定できない
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
   b_type: "就労継続B型",
   a_type: "就労継続A型",
   transition: "就労移行支援",
+  job_retention: "就労定着支援",
   after_school: "放課後等デイ",
   group_home: "グループホーム",
   day_care: "生活介護",
   consultation: "相談支援",
   child_dev: "児童発達支援",
+  home_help: "居宅介護",
+  severe_visit: "重度訪問介護",
+  accompany: "同行援護",
+  behavior_aid: "行動援護",
+  short_stay: "短期入所",
+  residential: "施設入所支援",
+  self_training: "自立訓練",
+  medical_care: "療養介護",
   unknown: "不明",
 };
 

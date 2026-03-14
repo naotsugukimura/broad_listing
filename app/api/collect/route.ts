@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { searchTweets } from "@/lib/twitter";
 import { geminiModel } from "@/lib/gemini";
-import { DUMMY_POSTS } from "@/lib/dummy-data";
 import { buildSentimentPrompt } from "@/lib/sentiment-prompt";
 import type { AspectSentiment, EmotionScores, SoftwareName, ServiceType } from "@/types";
 
@@ -21,14 +20,6 @@ type EnhancedAnalysis = {
 
 /**
  * Geminiで拡張感情分析 v2
- *
- * v1からの改善:
- * - アスペクト感情を5段階スコア化（3値→1-5）
- * - 全判定にCoT（Chain of Thought）理由を必須化
- * - 皮肉・スラング・混合評価の明示的ルール
- * - 障害福祉ドメイン文脈の注入
- * - サービス種別の自動検出
- * - キーワード抽出
  */
 async function analyzeEnhanced(texts: string[]): Promise<EnhancedAnalysis[]> {
   const prompt = buildSentimentPrompt(texts);
@@ -43,7 +34,6 @@ async function analyzeEnhanced(texts: string[]): Promise<EnhancedAnalysis[]> {
   };
 
   return analyses.map((a) => {
-    // sentiment_scoreから3値sentimentを導出（フォールバック）
     const score = typeof a.sentiment_score === "number" ? a.sentiment_score : 3;
     const derivedSentiment: Sentiment =
       score <= 2 ? "negative" : score >= 4 ? "positive" : "neutral";
@@ -52,7 +42,6 @@ async function analyzeEnhanced(texts: string[]): Promise<EnhancedAnalysis[]> {
       ? rawSentiment
       : derivedSentiment) as Sentiment;
 
-    // アスペクトのsentimentもscoreから導出（scoreがある場合）
     const aspects = Array.isArray(a.aspect_sentiments)
       ? a.aspect_sentiments.map((asp) => {
           if (typeof asp.score === "number" && asp.score >= 1 && asp.score <= 5) {
@@ -77,75 +66,17 @@ async function analyzeEnhanced(texts: string[]): Promise<EnhancedAnalysis[]> {
   });
 }
 
-// POST /api/collect - X APIまたはダミーデータを収集
-export async function POST(request: Request) {
+// POST /api/collect - X APIから投稿を収集
+export async function POST() {
   try {
-    const body = await request.json().catch(() => ({}));
-    const mode = (body as { mode?: string }).mode ?? "x";
-
-    // ダミーモード
-    if (mode === "dummy" || !process.env.X_BEARER_TOKEN) {
-      const postsToInsert = DUMMY_POSTS.map((post) => ({
-        content: post.content,
-        author: post.author,
-        source: "dummy" as const,
-        posted_at: post.posted_at,
-        sentiment: post.sentiment,
-        software_mentioned: post.software_mentioned,
-        aspect_sentiments: post.aspect_sentiments,
-        emotion_scores: post.emotion_scores,
-      }));
-
-      const { data, error } = await supabase
-        .from("sns_posts")
-        .upsert(postsToInsert, { onConflict: "content" })
-        .select();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({
-        message: `${data.length}件のダミー投稿を収集しました（6ソフト+未使用者、ABSA・Plutchik感情分析付き）`,
-        count: data.length,
-        source: "dummy",
-      });
+    if (!process.env.X_BEARER_TOKEN) {
+      return NextResponse.json(
+        { error: "X_BEARER_TOKEN が設定されていません。環境変数を確認してください。" },
+        { status: 400 }
+      );
     }
 
-    // X APIモード
-    let tweets;
-    try {
-      tweets = await searchTweets();
-    } catch (xError) {
-      console.error("X API error, falling back to dummy:", xError);
-      const postsToInsert = DUMMY_POSTS.map((post) => ({
-        content: post.content,
-        author: post.author,
-        source: "dummy" as const,
-        posted_at: post.posted_at,
-        sentiment: post.sentiment,
-        software_mentioned: post.software_mentioned,
-        aspect_sentiments: post.aspect_sentiments,
-        emotion_scores: post.emotion_scores,
-      }));
-
-      const { data, error } = await supabase
-        .from("sns_posts")
-        .upsert(postsToInsert, { onConflict: "content" })
-        .select();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      const errMsg = xError instanceof Error ? xError.message : String(xError);
-      return NextResponse.json({
-        message: `X API接続エラーのためダミーデータ${data.length}件を使用（${errMsg}）`,
-        count: data.length,
-        source: "dummy",
-        xError: errMsg,
-      });
-    }
+    const tweets = await searchTweets();
 
     if (tweets.length === 0) {
       return NextResponse.json({
@@ -173,6 +104,8 @@ export async function POST(request: Request) {
       service_types: analyses[i].service_types,
       key_keywords: analyses[i].key_keywords,
       search_tier: tweet.search_tier ?? null,
+      tweet_id: tweet.id,
+      tweet_url: `https://x.com/${tweet.author_username}/status/${tweet.id}`,
     }));
 
     const { data, error } = await supabase

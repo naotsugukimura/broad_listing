@@ -13,6 +13,7 @@ async function getData() {
     supabase
       .from("sns_posts")
       .select("*")
+      .not("tweet_url", "is", null)
       .order("posted_at", { ascending: false }),
     supabase
       .from("post_clusters")

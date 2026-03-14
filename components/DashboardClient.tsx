@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Database, Brain, Loader2, RefreshCw } from "lucide-react";
+import { Database, Brain, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import type { SnsPost, PostCluster, ClusteringRun } from "@/types";
 
 type Props = {
@@ -37,6 +37,7 @@ export function DashboardClient({
   const [runs, setRuns] = useState(initialRuns);
   const [collecting, setCollecting] = useState(false);
   const [clustering, setClustering] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const [sentimentFilter, setSentimentFilter] = useState<string>("all");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -66,6 +67,21 @@ export function DashboardClient({
       setMessage("データ収集に失敗しました");
     } finally {
       setCollecting(false);
+    }
+  };
+
+  const handleCleanup = async () => {
+    setCleaning(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/cleanup", { method: "POST" });
+      const data = await res.json();
+      setMessage(data.message || data.error);
+      await refreshData();
+    } catch {
+      setMessage("クリーンアップに失敗しました");
+    } finally {
+      setCleaning(false);
     }
   };
 
@@ -117,6 +133,19 @@ export function DashboardClient({
         </Button>
         <Button onClick={refreshData} variant="outline" size="icon">
           <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button
+          onClick={handleCleanup}
+          disabled={cleaning}
+          variant="destructive"
+          size="sm"
+        >
+          {cleaning ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="mr-2 h-4 w-4" />
+          )}
+          デモデータ削除
         </Button>
 
         {message && (
@@ -174,7 +203,7 @@ export function DashboardClient({
 
           {posts.length === 0 && (
             <div className="rounded-lg border border-dashed p-12 text-center text-gray-500">
-              <p>データがありません。「データ収集」ボタンでダミーデータを投入してください。</p>
+              <p>データがありません。「データ収集」ボタンでX投稿を取得してください。</p>
             </div>
           )}
         </TabsContent>

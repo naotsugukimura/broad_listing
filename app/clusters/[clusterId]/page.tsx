@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, MessageCircle, Lightbulb, BarChart3 } from "lucide-react";
+import { ArrowLeft, MessageCircle, Lightbulb, BarChart3, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CATEGORY_LABELS } from "@/types";
@@ -189,7 +189,19 @@ export default async function ClusterDetailPage({ params }: Props) {
                     {post.content}
                   </p>
                   <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                    <span>{post.author}</span>
+                    {post.tweet_url ? (
+                      <a
+                        href={post.tweet_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-blue-600 hover:underline"
+                      >
+                        {post.author}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span>{post.author}</span>
+                    )}
                     <span className={sentimentConfig[post.sentiment]?.color}>
                       {sentimentConfig[post.sentiment]?.label}
                     </span>
@@ -222,7 +234,19 @@ export default async function ClusterDetailPage({ params }: Props) {
                   </p>
                   <div className="mt-1.5 flex items-center justify-between text-xs text-gray-500">
                     <div className="flex items-center gap-2">
-                      <span>{post.author}</span>
+                      {post.tweet_url ? (
+                        <a
+                          href={post.tweet_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:underline"
+                        >
+                          {post.author}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : (
+                        <span>{post.author}</span>
+                      )}
                       <span>{formatted}</span>
                     </div>
                     <span className={`flex items-center gap-1 ${sc.color}`}>
