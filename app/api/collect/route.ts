@@ -3,80 +3,35 @@ import { supabase } from "@/lib/supabase";
 import { searchTweets } from "@/lib/twitter";
 import { geminiModel } from "@/lib/gemini";
 import { DUMMY_POSTS } from "@/lib/dummy-data";
-import type { AspectSentiment, EmotionScores, SoftwareName } from "@/types";
+import { buildSentimentPrompt } from "@/lib/sentiment-prompt";
+import type { AspectSentiment, EmotionScores, SoftwareName, ServiceType } from "@/types";
 
 type Sentiment = "positive" | "neutral" | "negative";
 
 type EnhancedAnalysis = {
   sentiment: Sentiment;
+  sentiment_score: number;
+  sentiment_reason: string;
   software_mentioned: SoftwareName[];
+  service_types: ServiceType[];
   aspect_sentiments: AspectSentiment[];
   emotion_scores: EmotionScores;
+  key_keywords: string[];
 };
 
 /**
- * Geminiで拡張感情分析（ABSA + Plutchik + ソフトウェア検出）
+ * Geminiで拡張感情分析 v2
  *
- * 学術的根拠:
- * - ABSA: Pontiki et al. (2016) SemEval-2016 Task 5
- * - Plutchik: Plutchik (1980) "Emotion: A Psychoevolutionary Synthesis"
- * - 日本語感情: WRIME Dataset (Kajiwara et al., 2021)
+ * v1からの改善:
+ * - アスペクト感情を5段階スコア化（3値→1-5）
+ * - 全判定にCoT（Chain of Thought）理由を必須化
+ * - 皮肉・スラング・混合評価の明示的ルール
+ * - 障害福祉ドメイン文脈の注入
+ * - サービス種別の自動検出
+ * - キーワード抽出
  */
 async function analyzeEnhanced(texts: string[]): Promise<EnhancedAnalysis[]> {
-  const prompt = `あなたは感情分析の専門AIです。以下の学術的フレームワークに基づいて分析してください。
-
-## 分析フレームワーク
-
-### 1. 全体感情（3値分類）
-投稿全体の感情を "positive"、"neutral"、"negative" のいずれかで判定。
-
-### 2. Plutchikの感情の輪（8基本感情・WRIME準拠）
-各感情を0〜3の強度で評価（0=なし、1=弱い、2=中程度、3=強い）。
-- joy（喜び）: 満足感、嬉しさ、達成感
-- trust（信頼）: 安心感、信頼性、頼もしさ
-- anticipation（期待）: 前向きな展望、楽しみ
-- surprise（驚き）: 予想外の発見、意外さ
-- fear（不安）: 心配、恐れ、リスク懸念
-- sadness（悲しみ）: 失望、残念、諦め
-- anger（怒り）: 不満、苛立ち、憤り
-- disgust（嫌悪）: 拒否感、うんざり
-
-### 3. アスペクトベース感情分析（ABSA）
-投稿内で言及されている機能・側面を抽出し、それぞれの感情を評価。
-機能カテゴリ（該当するもののみ）:
-- billing: 請求機能
-- recording: 記録管理
-- care_plan: 支援計画
-- ui_ux: 操作性・UI
-- support: サポート
-- pricing: 価格
-- mobile: モバイル
-- data_migration: データ移行
-- reporting: 帳票・レポート
-
-### 4. ソフトウェア言及検出
-- kabenashi: かべなしクラウド
-- honobono: ほのぼの NEXT / ほのぼの
-- kaishu: 介舟ファミリー / 介舟
-- knoube: ノウビー / Knoube
-- hug: HUG / ネットアーツ
-- wiseman: ワイズマン
-- none: ソフト未使用（Excel・紙運用の文脈）
-
-## 分析対象
-${texts.map((t, i) => `[${i}] ${t}`).join("\n")}
-
-## 出力（JSON配列のみ）
-[
-  {
-    "sentiment": "positive",
-    "software_mentioned": ["kabenashi"],
-    "aspect_sentiments": [
-      {"aspect": "billing", "sentiment": "positive", "detail": "請求時間が半減"}
-    ],
-    "emotion_scores": {"joy": 2, "trust": 3, "anticipation": 0, "surprise": 1, "fear": 0, "sadness": 0, "anger": 0, "disgust": 0}
-  }
-]`;
+  const prompt = buildSentimentPrompt(texts);
 
   const result = await geminiModel.generateContent(prompt);
   const raw = result.response.text().replace(/```json\n?|```\n?/g, "").trim();
@@ -87,12 +42,39 @@ ${texts.map((t, i) => `[${i}] ${t}`).join("\n")}
     fear: 0, sadness: 0, anger: 0, disgust: 0,
   };
 
-  return analyses.map((a) => ({
-    sentiment: (["positive", "neutral", "negative"].includes(a.sentiment) ? a.sentiment : "neutral") as Sentiment,
-    software_mentioned: Array.isArray(a.software_mentioned) ? a.software_mentioned : [],
-    aspect_sentiments: Array.isArray(a.aspect_sentiments) ? a.aspect_sentiments : [],
-    emotion_scores: a.emotion_scores ?? defaultEmotions,
-  }));
+  return analyses.map((a) => {
+    // sentiment_scoreから3値sentimentを導出（フォールバック）
+    const score = typeof a.sentiment_score === "number" ? a.sentiment_score : 3;
+    const derivedSentiment: Sentiment =
+      score <= 2 ? "negative" : score >= 4 ? "positive" : "neutral";
+    const rawSentiment = a.sentiment;
+    const sentiment = (["positive", "neutral", "negative"].includes(rawSentiment)
+      ? rawSentiment
+      : derivedSentiment) as Sentiment;
+
+    // アスペクトのsentimentもscoreから導出（scoreがある場合）
+    const aspects = Array.isArray(a.aspect_sentiments)
+      ? a.aspect_sentiments.map((asp) => {
+          if (typeof asp.score === "number" && asp.score >= 1 && asp.score <= 5) {
+            const aspSentiment: Sentiment =
+              asp.score <= 2 ? "negative" : asp.score >= 4 ? "positive" : "neutral";
+            return { ...asp, sentiment: aspSentiment };
+          }
+          return asp;
+        })
+      : [];
+
+    return {
+      sentiment,
+      sentiment_score: score,
+      sentiment_reason: a.sentiment_reason ?? "",
+      software_mentioned: Array.isArray(a.software_mentioned) ? a.software_mentioned : [],
+      service_types: Array.isArray(a.service_types) ? a.service_types : ["unknown"],
+      aspect_sentiments: aspects,
+      emotion_scores: a.emotion_scores ?? defaultEmotions,
+      key_keywords: Array.isArray(a.key_keywords) ? a.key_keywords : [],
+    };
+  });
 }
 
 // POST /api/collect - X APIまたはダミーデータを収集
@@ -186,6 +168,11 @@ export async function POST(request: Request) {
       software_mentioned: analyses[i].software_mentioned,
       aspect_sentiments: analyses[i].aspect_sentiments,
       emotion_scores: analyses[i].emotion_scores,
+      sentiment_score: analyses[i].sentiment_score,
+      sentiment_reason: analyses[i].sentiment_reason,
+      service_types: analyses[i].service_types,
+      key_keywords: analyses[i].key_keywords,
+      search_tier: tweet.search_tier ?? null,
     }));
 
     const { data, error } = await supabase

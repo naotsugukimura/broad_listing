@@ -69,11 +69,12 @@ export const EMOTION_LABELS: Record<PlutchikEmotion, string> = {
 // 8感情スコア（0-3の強度）
 export type EmotionScores = Record<PlutchikEmotion, number>;
 
-// アスペクトベース感情分析（ABSA）
+// アスペクトベース感情分析（ABSA）— 5段階スコア + CoT
 export type AspectSentiment = {
   aspect: FeatureAspect;
-  sentiment: "positive" | "neutral" | "negative";
-  detail: string;
+  sentiment: "positive" | "neutral" | "negative"; // 後方互換（scoreから導出）
+  score?: number; // 1-5 詳細スコア（1=非常に不満 → 5=非常に満足）
+  detail: string; // 判定理由（Chain of Thought）
 };
 
 // SNS投稿
@@ -90,6 +91,36 @@ export type SnsPost = {
   software_mentioned: SoftwareName[];
   aspect_sentiments: AspectSentiment[];
   emotion_scores: EmotionScores;
+  search_tier?: string;
+  // v2: 感情分析強化フィールド
+  sentiment_score?: number; // 1-5 全体スコア
+  sentiment_reason?: string; // 全体判定のCoT理由
+  service_types?: ServiceType[]; // 検出されたサービス種別
+  key_keywords?: string[]; // 抽出キーワード
+};
+
+// 障害福祉サービス種別
+export type ServiceType =
+  | "b_type"        // 就労継続支援B型
+  | "a_type"        // 就労継続支援A型
+  | "transition"    // 就労移行支援
+  | "after_school"  // 放課後等デイサービス
+  | "group_home"    // グループホーム（共同生活援助）
+  | "day_care"      // 生活介護
+  | "consultation"  // 相談支援（計画相談）
+  | "child_dev"     // 児童発達支援
+  | "unknown";      // 特定できない
+
+export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
+  b_type: "就労継続B型",
+  a_type: "就労継続A型",
+  transition: "就労移行支援",
+  after_school: "放課後等デイ",
+  group_home: "グループホーム",
+  day_care: "生活介護",
+  consultation: "相談支援",
+  child_dev: "児童発達支援",
+  unknown: "不明",
 };
 
 // クラスター
