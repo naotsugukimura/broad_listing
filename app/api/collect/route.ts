@@ -61,7 +61,37 @@ export async function POST(request: Request) {
     }
 
     // X APIモード
-    const tweets = await searchTweets();
+    let tweets;
+    try {
+      tweets = await searchTweets();
+    } catch (xError) {
+      // X API失敗時はダミーデータにフォールバック
+      console.error("X API error, falling back to dummy:", xError);
+      const postsToInsert = DUMMY_POSTS.map((post) => ({
+        content: post.content,
+        author: post.author,
+        source: "dummy" as const,
+        posted_at: post.posted_at,
+        sentiment: post.sentiment,
+      }));
+
+      const { data, error } = await supabase
+        .from("sns_posts")
+        .upsert(postsToInsert, { onConflict: "content" })
+        .select();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      const errMsg = xError instanceof Error ? xError.message : String(xError);
+      return NextResponse.json({
+        message: `X API接続エラーのためダミーデータ${data.length}件を使用（${errMsg}）`,
+        count: data.length,
+        source: "dummy",
+        xError: errMsg,
+      });
+    }
 
     if (tweets.length === 0) {
       return NextResponse.json({
@@ -99,8 +129,9 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("Collect error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
     return NextResponse.json(
-      { error: "データ収集に失敗しました" },
+      { error: `データ収集に失敗しました: ${errMsg}` },
       { status: 500 }
     );
   }
